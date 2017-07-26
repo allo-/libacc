@@ -11,7 +11,9 @@
 
 #include <limits>
 
+#ifndef USE_LIBEIGEN
 #include <math/vector.h>
+#endif
 
 #include "defines.h"
 

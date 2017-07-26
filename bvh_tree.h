@@ -17,6 +17,7 @@
 #include <atomic>
 #include <thread>
 #include <limits>
+#include <vector>
 
 #include "primitives.h"
 
@@ -70,8 +71,8 @@ private:
         node.last = last;
         node.left = NAI;
         node.right = NAI;
-        node.aabb.min = Vec3fType(inf);
-        node.aabb.max = Vec3fType(-inf);
+        node.aabb.min = Vec3fType(inf, inf, inf);
+        node.aabb.max = Vec3fType(-inf, -inf, -inf);
         return node_id;
     }
 
@@ -174,7 +175,7 @@ BVHTree<IdxType, Vec3fType>::bsplit(typename Node::ID node_id,
         float min = node.aabb.min[d];
         float max = node.aabb.max[d];
         for (Bin & bin : bins) {
-            bin = {0, {Vec3fType(inf), Vec3fType(-inf)}};
+            bin = {0, {Vec3fType(inf, inf, inf), Vec3fType(-inf, -inf, -inf)}};
         }
         for (std::size_t i = node.first; i < node.last; ++i) {
             AABB const & aabb = aabbs[indices[i]];
@@ -214,7 +215,7 @@ BVHTree<IdxType, Vec3fType>::bsplit(typename Node::ID node_id,
     float min = node.aabb.min[d];
     float max = node.aabb.max[d];
     for (Bin & bin : bins) {
-        bin = {0, {Vec3fType(inf), Vec3fType(-inf)}};
+        bin = {0, {Vec3fType(inf, inf, inf), Vec3fType(-inf, -inf, -inf)}};
     }
     for (std::size_t i = node.first; i < node.last; ++i) {
         AABB const & aabb = aabbs[indices[i]];
@@ -426,7 +427,11 @@ BVHTree<IdxType, Vec3fType>::closest_point(Vec3fType vertex, typename Node::ID n
 
     for (std::size_t i = node.first; i < node.last; ++i) {
         Vec3fType closest_tri = acc::closest_point(vertex, tris[i]);
+#ifdef USE_LIBEIGEN
+        float dist_tri = (closest_tri - vertex).squaredNorm();
+#else
         float dist_tri = (closest_tri - vertex).square_norm();
+#endif
         if (dist_tri < dist) {
             closest = closest_tri;
             dist = dist_tri;
@@ -449,8 +454,13 @@ BVHTree<IdxType, Vec3fType>::closest_point(Vec3fType vertex, float max_dist) con
         if (node.left != NAI && node.right != NAI) {
             Vec3fType closest_left = acc::closest_point(vertex, nodes[node.left].aabb);
             Vec3fType closest_right = acc::closest_point(vertex, nodes[node.right].aabb);
+#ifdef USE_LIBEIGEN
+            float dmin_left = (closest_left - vertex).squaredNorm();
+            float dmin_right = (closest_right - vertex).squaredNorm();
+#else
             float dmin_left = (closest_left - vertex).square_norm();
             float dmin_right = (closest_right - vertex).square_norm();
+#endif
             bool left = dmin_left < dist;
             bool right = dmin_right < dist;
             if (left && right) {
@@ -472,7 +482,11 @@ BVHTree<IdxType, Vec3fType>::closest_point(Vec3fType vertex, float max_dist) con
             }
         } else {
             Vec3fType closest_leaf = closest_point(vertex, node_id);
+#ifdef USE_LIBEIGEN
+            float dist_leaf = (closest_leaf - vertex).squaredNorm();
+#else
             float dist_leaf = (closest_leaf - vertex).square_norm();
+#endif
             if (dist_leaf < dist) {
                 dist = dist_leaf;
                 closest = closest_leaf;
